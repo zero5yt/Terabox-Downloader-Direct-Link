@@ -2,16 +2,16 @@
 import requests
 import os
 import sys
-import re  
+import re # Idagdag ang re para sa filename parsing
 
 # ==============================================================================
-#                      I. RAPIDAPI CONFIGURATION
+#                      I. RAPIDAPI CONFIGURATION (THE WORKING VERSION)
 # ==============================================================================
 
-# IYONG KEY AT HOST/ENDPOINT
+# IYONG KEY AT HOST/ENDPOINT (GET METHOD)
 RAPIDAPI_KEY = "e34a3ea2c6msh0d27fd9eebd75e6p16b31ajsn8e3dc920cb0d" 
-RAPIDAPI_HOST = "terabox-downloader-direct-download-link-generator.p.rapidapi.com" 
-API_ENDPOINT = f"https://{RAPIDAPI_HOST}/fetch" # POST Endpoint
+RAPIDAPI_HOST = "terabox-downloader-direct-download-link-generator2.p.rapidapi.com" 
+API_ENDPOINT = f"https://{RAPIDAPI_HOST}/url" # GET Endpoint
 
 # ==============================================================================
 #                        II. FUNCTIONS
@@ -20,23 +20,21 @@ API_ENDPOINT = f"https://{RAPIDAPI_HOST}/fetch" # POST Endpoint
 def get_direct_link(terabox_url):
     """Hakbang 1: I-convert ang Terabox URL sa Direct Download Link gamit ang RapidAPI."""
     
-    data = {"url": terabox_url}
+    querystring = {"url": terabox_url}
     headers = {
         "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": RAPIDAPI_HOST,
-        "Content-Type": "application/json"
+        "x-rapidapi-host": RAPIDAPI_HOST
     }
 
     print("Status: Almaras Kinukuha ang Direct Link mula sa Terabox Link...")
     try:
-        response = requests.post(API_ENDPOINT, headers=headers, json=data, timeout=15)
+        response = requests.get(API_ENDPOINT, headers=headers, params=querystring, timeout=15)
         response.raise_for_status() 
         
         raw_data = response.json()
         direct_link = None
-        data_object = None
-
-        # FINAL FIX: Check kung List O Dict ang response (JSON Parsing Fix)
+        
+        # FINAL PARSING FIX: Handle List/Array Response
         if isinstance(raw_data, list) and len(raw_data) > 0:
             data_object = raw_data[0]
         elif isinstance(raw_data, dict):
@@ -44,16 +42,15 @@ def get_direct_link(terabox_url):
         else:
             print(f"Error sa API Response (Unexpected type): {raw_data}")
             return None
-        # ---------------------------------------------------------------------
-
-        # FINAL PARSING: Hanapin ang 'fastdlink' sa nakuha nating object
-        direct_link = data_object.get("fastdlink") or data_object.get("url3") or data_object.get("link")
+        
+        # FINAL PARSING: Hanapin ang 'fastdlink' o 'url' o 'link'
+        direct_link = data_object.get("fastdlink") or data_object.get("url") or data_object.get("link")
         
         if direct_link:
-            print("Status:  Almaras Matagumpay na nakuha ang Direct Link.")
+            print("Status:   Almaras Matagumpay na nakuha ang Direct Link.")
             return direct_link
         else:
-            print(f"Error sa API Response (Walang Link sa fastdlink): {raw_data}")
+            print(f"Error sa API Response (Walang Link sa fields): {raw_data}")
             return None
             
     except requests.exceptions.HTTPError as err:
@@ -63,24 +60,22 @@ def get_direct_link(terabox_url):
         print(f"\n  Connection Error/Timeout: {e}")
         return None
     except Exception as e:
-        print(f"\n  Parsing/General Error: {e}. Raw Data Type: {type(raw_data)}")
+        print(f"\n  Parsing/General Error: {e}")
         return None
 
 def download_file(direct_url, filename="downloaded_terabox_file"):
-    """Hakbang 2: I-download ang file gamit ang Direct Link (with automatic filename)."""
+    """Hakbang 2: I-download ang file gamit ang Direct Link (with final filename logic)."""
     
     final_filename = None
     
-    # Set User-Agent para sa parehong HEAD at GET request
+    # Final User-Agent at Filename Logic
     download_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
     }
 
     try:
-        # Step 1: HEAD request para sa Content-Disposition header
+        # Step 1: Kuhanin ang filename mula sa Content-Disposition header
         head_response = requests.head(direct_url, headers=download_headers, timeout=10)
-        
-        # Subukan kuhanin ang filename mula sa 'Content-Disposition' header
         content_disposition = head_response.headers.get('Content-Disposition')
         
         if content_disposition:
@@ -90,7 +85,6 @@ def download_file(direct_url, filename="downloaded_terabox_file"):
 
         # Fallback at .bin Fix
         if not final_filename or final_filename.endswith(('.bin', 'download', 'file')) or '.' not in final_filename:
-            # Gamitin ang filename mula sa URL, at i-set na MP4 ang extension kung walang nakuha
             base_name = os.path.basename(direct_url.split('?')[0])
             if base_name.endswith('.bin'):
                  base_name = base_name[:-4] + '.mp4'
@@ -100,7 +94,7 @@ def download_file(direct_url, filename="downloaded_terabox_file"):
 
         print(f"\nStatus: Sinisimulan ang pag-download. Ise-save bilang: {final_filename}")
         
-        # Step 2: GET request para sa actual download
+        # Step 2: Actual download
         response = requests.get(direct_url, stream=True, headers=download_headers, timeout=3600) 
         response.raise_for_status() 
         
