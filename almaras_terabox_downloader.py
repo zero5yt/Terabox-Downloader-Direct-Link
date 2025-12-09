@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 import requests
 import os
 import sys
-import re  # IDINAGDAG ANG 're' para sa Filename parsing
+import re  
 
 # ==============================================================================
 #                      I. RAPIDAPI CONFIGURATION
@@ -26,22 +27,33 @@ def get_direct_link(terabox_url):
         "Content-Type": "application/json"
     }
 
-    print("Status: ®Almaras Kinukuha ang Direct Link mula sa Terabox Link...")
+    print("Status: Almaras Kinukuha ang Direct Link mula sa Terabox Link...")
     try:
         response = requests.post(API_ENDPOINT, headers=headers, json=data, timeout=15)
         response.raise_for_status() 
         
-        data = response.json()
+        raw_data = response.json()
         direct_link = None
-        
-        # FINAL PARSING: Hanapin ang 'fastdlink'
-        direct_link = data.get("fastdlink") or data.get("url3") or data.get("link")
+        data_object = None
+
+        # FINAL FIX: Check kung List O Dict ang response (JSON Parsing Fix)
+        if isinstance(raw_data, list) and len(raw_data) > 0:
+            data_object = raw_data[0]
+        elif isinstance(raw_data, dict):
+            data_object = raw_data
+        else:
+            print(f"Error sa API Response (Unexpected type): {raw_data}")
+            return None
+        # ---------------------------------------------------------------------
+
+        # FINAL PARSING: Hanapin ang 'fastdlink' sa nakuha nating object
+        direct_link = data_object.get("fastdlink") or data_object.get("url3") or data_object.get("link")
         
         if direct_link:
-            print("Status:   ®Almaras Matagumpay na nakuha ang Direct Link.")
+            print("Status:  Almaras Matagumpay na nakuha ang Direct Link.")
             return direct_link
         else:
-            print(f"Error sa API Response (Walang Link sa fastdlink): {data}")
+            print(f"Error sa API Response (Walang Link sa fastdlink): {raw_data}")
             return None
             
     except requests.exceptions.HTTPError as err:
@@ -51,7 +63,7 @@ def get_direct_link(terabox_url):
         print(f"\n  Connection Error/Timeout: {e}")
         return None
     except Exception as e:
-        print(f"\n  Parsing/General Error: {e}")
+        print(f"\n  Parsing/General Error: {e}. Raw Data Type: {type(raw_data)}")
         return None
 
 def download_file(direct_url, filename="downloaded_terabox_file"):
@@ -59,32 +71,32 @@ def download_file(direct_url, filename="downloaded_terabox_file"):
     
     final_filename = None
     
-    # Set User-Agent para i-bypass ang hotlink protection (HEAD request para sa filename)
+    # Set User-Agent para sa parehong HEAD at GET request
     download_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
     }
 
     try:
-        # Step 1: HEAD request para makuha ang Content-Disposition header
+        # Step 1: HEAD request para sa Content-Disposition header
         head_response = requests.head(direct_url, headers=download_headers, timeout=10)
         
         # Subukan kuhanin ang filename mula sa 'Content-Disposition' header
         content_disposition = head_response.headers.get('Content-Disposition')
         
         if content_disposition:
-            # Hanapin ang 'filename=' sa header
             fname_match = re.search('filename="(.+?)"', content_disposition)
             if fname_match:
-                final_filename = fname_match.group(1).replace('"', '').replace("'", "") # Kuhanin ang filename
+                final_filename = fname_match.group(1).replace('"', '').replace("'", "")
 
         # Fallback at .bin Fix
         if not final_filename or final_filename.endswith(('.bin', 'download', 'file')) or '.' not in final_filename:
-            # Fallback Filename
+            # Gamitin ang filename mula sa URL, at i-set na MP4 ang extension kung walang nakuha
             base_name = os.path.basename(direct_url.split('?')[0])
             if base_name.endswith('.bin'):
                  base_name = base_name[:-4] + '.mp4'
             
             final_filename = base_name if '.' in base_name else f"Terabox_Video_{os.urandom(4).hex()}.mp4"
+
 
         print(f"\nStatus: Sinisimulan ang pag-download. Ise-save bilang: {final_filename}")
         
@@ -92,7 +104,6 @@ def download_file(direct_url, filename="downloaded_terabox_file"):
         response = requests.get(direct_url, stream=True, headers=download_headers, timeout=3600) 
         response.raise_for_status() 
         
-        # ... (rest of the download code)
         total_size = int(response.headers.get('content-length', 0))
         block_size = 8192
         downloaded = 0
@@ -108,7 +119,7 @@ def download_file(direct_url, filename="downloaded_terabox_file"):
                     sys.stdout.write(f"\rDownloading: [{'#' * progress}{'.' * (50 - progress)}] {downloaded * 100 / total_size if total_size > 0 else 0:.2f}%")
                     sys.stdout.flush()
         
-        print(f"\n  ®Almaras SUCCESS: Tapos na ang pag-download! Ang file ay na-save sa: {os.path.abspath(final_filename)}")
+        print(f"\n  Almaras SUCCESS: Tapos na ang pag-download! Ang file ay na-save sa: {os.path.abspath(final_filename)}")
         print(f"I-move sa Downloads: mv \"{final_filename}\" storage/downloads/") 
 
     except requests.exceptions.RequestException as e:
