@@ -47,7 +47,7 @@ def get_direct_link(terabox_url):
         direct_link = data_object.get("fastdlink") or data_object.get("url") or data_object.get("link")
         
         if direct_link:
-            print("Status:   Almaras Matagumpay na nakuha ang Direct Link.")
+            print("Status: Almaras Matagumpay na nakuha ang Direct Link.")
             return direct_link
         else:
             print(f"Error sa API Response (Walang Link sa fields): {raw_data}")
@@ -126,8 +126,8 @@ def download_file(direct_url, filename="downloaded_terabox_file"):
 # ==============================================================================
 
 def main_downloader():
-    print("\n--- TERMUX TERABOX DOWNLOADER APP (PYTHON) ---")
-    terabox_url = input("Ipasok ang Terabox Share URL: ").strip()
+    print("\n--- R.ALMARAS TERMUX TERABOX DOWNLOADER SCRIPT (PYTHON) ---")
+    terabox_url = input("Ipasok ha um a um ang Terabox Share URL: ").strip()
     
     if not terabox_url:
         print("Walang URL na inilagay. Lumabas sa App.")
@@ -138,7 +138,7 @@ def main_downloader():
     if direct_link:
         download_file(direct_link)
     else:
-        print("\n  FAILED: Hindi maipagpatuloy ang pag-download.")
+        print("\n  FAILED: Hindi maipagpatuloy ang pag-download dahil expired ang key free tire mo subscribe ka ulit po.")
 
 
 if __name__ == "__main__":
